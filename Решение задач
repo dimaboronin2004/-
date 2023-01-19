@@ -1,0 +1,271 @@
+//Задача про Формулу 1
+fun racingResults(inputName: String): Map<String, Int> {
+    val lines: List<String>
+    try {
+        lines = File(inputName).readLines().toMutableList()
+    } catch (e: IOException) {
+        throw IOException("Impossible to read file $inputName")
+    }
+    val res = mutableMapOf<String, Int>()
+    for (line in lines) {
+        if (line.matches(Regex("[А-Я]\\. [А-я]*,( [А-я]*)+, \\d+"))) {
+            val team = line.split(", ")[1]
+            val result = line.split(", ")[2].toInt()
+            res[team] = if (team !in res.keys) result else res[team]!! + result
+        } else if (line.isEmpty() || line.matches(Regex("Гран-при [А-я]+:")))
+            continue
+        else
+            throw IllegalArgumentException("Wrong format of line $line")
+    }
+    return res.toList().sortedBy { (k, v) -> v }.reversed().toMap()
+} 
+//Правка списка строк
+fun correctListOfStrings(inputName: String, changes: List<String>, outputName: String) {
+    val lines: List<String>
+    try {
+        lines = File(inputName).readLines().toMutableList()
+    } catch (e: IOException) {
+        throw IOException("Impossible to read file $inputName")
+    }
+
+    val writer = File(outputName).bufferedWriter()
+    val map = mutableMapOf<Int, String>()
+
+    lines.addAll(changes)
+    for (line in lines) {
+        if (!line.matches(Regex("\\d+( [А-я]+)+")))
+            throw IllegalArgumentException("Wrong format of line $line in file")
+        val splt = line.split(" ")
+        val num = splt[0].toInt()
+        val string = splt.subList(1, splt.size).joinToString(separator = " ")
+        map[num] = string
+    }
+
+    for ((num, string) in map.toList().sortedBy { (k, v) -> k }.toMap()) {
+        writer.write("$num $string")
+        writer.newLine()
+    }
+
+    writer.close()
+}
+//Робот Вася
+fun robotVasya(inputName: String, commands: List<String>, outputName: String) {
+    val lines: List<String>
+    try {
+        lines = File(inputName).readLines().toMutableList()
+    } catch (e: IOException) {
+        throw IOException("Impossible to read file $inputName")
+    }
+
+    val general = mutableListOf<Char>()
+    lines.forEach { line ->
+        line.forEach { symbol ->
+            general.add(symbol)
+        }
+    }
+    val width = lines[0].length
+    val height = lines.size
+    val field = listToMatrix(general, height, width)
+    val startCoordX = findElement(field, 'R').second
+    val startCoordY = findElement(field, 'R').first
+    var changedCoordX = findElement(field, 'R').second
+    var changedCoordY = findElement(field, 'R').first
+
+    val destinationToCoordDiff = mapOf(
+        "север" to (0 to -1),
+        "восток" to (1 to 0),
+        "запад" to (-1 to 0),
+        "юг" to (0 to 1)
+    )
+    var counter = 0
+    val listOfDestinations = mutableListOf("север")
+    val listOfChanges = mutableListOf<Pair<Int, Int>>()
+    val steps = mutableListOf<String>()
+
+    for (command in commands) {
+        val currentDestination = listOfDestinations.last()
+        if (command == "ход") {
+            listOfDestinations.add(currentDestination)
+            steps.add(currentDestination)
+            counter += 0
+        } else if (command == "поворот") {
+            counter++
+            when (counter) {
+                1 -> {
+                    listOfDestinations.add("восток")
+                }
+
+                2 -> {
+                    listOfDestinations.add("юг")
+                }
+
+                3 -> {
+                    listOfDestinations.add("запад")
+                }
+
+                else -> {
+                    listOfDestinations.add("север")
+                    counter = 0
+                }
+            }
+        } else {
+            throw IllegalArgumentException("Wrong format of command $command")
+        }
+    }
+
+    listOfDestinations.remove(listOfDestinations.first())
+    for (step in steps) {
+        listOfChanges.add(destinationToCoordDiff[step]!!)
+    }
+
+    for (change in listOfChanges) {
+        changedCoordX += change.first
+        changedCoordY += change.second
+        if (changedCoordX >= width || changedCoordY >= height) {
+            throw IllegalStateException("Robot left the field")
+        }
+        if (field[changedCoordY, changedCoordX] == 'O') {
+            throw IllegalStateException("Robot crashed")
+        }
+    }
+
+    field[startCoordY, startCoordX] = 'x'
+    field[changedCoordY, changedCoordX] = 'R'
+    val writer = File(outputName).bufferedWriter()
+    for (i in 0 until field.height) {
+        val row = getRowForField(field, i)
+        writer.write(row.joinToString(separator = ""))
+        writer.newLine()
+    }
+    writer.close()
+}
+//Футбол
+fun footballResults(inputName: String): List<String> {
+    val lines: List<String>
+    try {
+        lines = File(inputName).readLines().toMutableList()
+    } catch (e: IOException) {
+        throw IOException("Impossible to read file $inputName")
+    }
+    val map = mutableMapOf<String, Int>()
+    val res = mutableListOf<String>()
+    val symbolToScore = mapOf("0" to 0, "L" to 0, "D" to 1, "W" to 3)
+    for (line in lines) {
+        if (!line.matches(Regex("[0WDL ]+- [А-я ]+")))
+            throw IllegalStateException("Wrong format of line $line")
+        if (!checkFootballTable(lines))
+            throw IllegalStateException("Mistake in table of results")
+        val team = line.split(" - ")[1]
+        val score = line.split(" - ")[0]
+        val splt = score.split(" ")
+        var consumer = 0
+        for (symbol in splt) {
+            consumer += symbolToScore[symbol]!!
+        }
+        map[team] = consumer
+    }
+    for (pair in map.toList().sortedBy { (k, v) -> v }.reversed()) {
+        res.add(pair.first)
+    }
+    return res.toList()
+}
+//Транспорт
+fun publicTransport(inputName: String, src: String, dst: String): Set<String> {
+    val lines: List<String>
+    try {
+        lines = File(inputName).readLines().toMutableList()
+    } catch (e: IOException) {
+        throw IOException("Impossible to read file $inputName")
+    }
+
+    if (!src.matches(Regex("([а-я]+\\.? )?([А-я ]+)( [а-я]+\\.?)?"))
+        || !dst.matches(Regex("([а-я]+\\.? )?([А-я ]+)( [а-я]+\\.?)?"))
+    ) {
+        throw IllegalArgumentException("Wrong format of input data: src $src, dst $dst")
+    }
+
+    val res = mutableSetOf<String>()
+    val listOfRoots = mutableListOf<List<String>>()
+    val transportToRoot = mutableMapOf<List<String>, String>()
+    for (line in lines) {
+        if (!line.matches(Regex("[а-я]+ \\d+ ([а-я]+\\.?)?[А-я ]+([а-я]+\\.?)?(> ([а-я]+\\.?)?[А-я ]+([а-я]+\\.?)?)+")))
+            throw IllegalArgumentException("Wrong format of line $line")
+        val splt = line.split(" ").toMutableList()
+        val transport = splt.subList(0, 2).joinToString(separator = " ")
+        val stations = splt.subList(2, splt.size).joinToString(separator = " ").split(" > ")
+        listOfRoots.add(stations)
+        transportToRoot[stations] = transport
+        if (stations.contains(src) && stations.contains(dst)) {
+            res.add(transport)
+        }
+    }
+    return if (res.isNotEmpty()) res.toSet() //Удовлетворительно (нет пересадок)
+    else {
+        for (i in 0 until listOfRoots.size) {
+            for (j in 0 until listOfRoots.size) {
+                if (i != j && listOfRoots[i].contains(src) && listOfRoots[j].contains(dst)
+                    && listOfRoots[i].toSet().intersect(listOfRoots[j].toSet()).isNotEmpty()
+                ) {
+                    res.add(transportToRoot[listOfRoots[i]]!! + ", " + transportToRoot[listOfRoots[j]]!!)
+                    if (res.size == 2) break
+                }
+            }
+        }
+        res //Хорошо (одна пересадка)
+    }
+}
+//Формат ADOC
+fun ADOCformat(inputName: String, outputName: String) {
+    val lines: List<String>
+    try {
+        lines = File(inputName).readLines().toMutableList()
+    } catch (e: IOException) {
+        throw IOException("Impossible to read file $inputName")
+    }
+
+    val writer = File(outputName).bufferedWriter()
+    writer.write("<html><body>")
+    writer.newLine()
+
+    for (line in lines) {
+        if (line.isEmpty()) {
+            writer.write("<p></p>")
+        }
+        if (!checkLine(line) && line.isNotEmpty())
+            throw IllegalArgumentException("Wrong format of line $line")
+        writer.write(tagLine(line))
+        writer.newLine()
+    }
+
+    writer.write("</body></html>")
+    writer.close()
+}
+//Стримеры
+fun mostPopular(inputName: String): List<String> {
+    val streamerToWatches = mutableMapOf<String, Double>()
+    for (line in File(inputName).readLines()) {
+        if (!line.matches(Regex("[A-zА-я]+: \\d+h:\\d+m, \\d+")))
+            throw IllegalArgumentException("Wrong format of input data in line $line")
+        val splitted = line.split(": ")
+        val streamer = splitted[0]
+        val rest = splitted[1].split(", ")
+        val hoursAndMins = rest[0]
+        val watchesPerHour = rest[1].toDouble()
+        val hours = hoursAndMins.split(":")[0]
+        val doubleHours = hours.substring(0, hours.length - 1).toDouble()
+        val mins = hoursAndMins.split(":")[1]
+        val doubleMins = mins.substring(0, mins.length - 1).toDouble()
+        if (doubleMins.toInt() !in 0..59)
+            throw IllegalArgumentException("Inappropriate number of minutes $doubleMins in line $line")
+        val generalTime = doubleHours + (doubleMins / 60.0)
+        val generalWatches = generalTime * watchesPerHour
+        if (streamer !in streamerToWatches.keys) streamerToWatches[streamer] = generalWatches
+        else streamerToWatches[streamer] = streamerToWatches[streamer]!! + generalWatches
+    }
+    val sorted = streamerToWatches.toList().sortedWith(compareBy({ it.second }, { it.first }))
+    val sortedNames = mutableListOf<String>()
+    for ((name, number) in sorted) {
+        sortedNames.add(name)
+    }
+    return sortedNames.toList()
+}
